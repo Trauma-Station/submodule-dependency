@@ -1,11 +1,12 @@
 {
   "name": "submodule-dependency-action",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "build": "tsc",
-    "pack": "ncc build dist/index.js -o dist --minify"
+    "pack": "rollup --config rollup.config.js"
   },
   "keywords": [],
   "author": "",
@@ -17,8 +18,11 @@
     "simple-git": "^3.36.0"
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^29.0.2",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.3",
     "@types/node": "^25.9.1",
-    "@vercel/ncc": "^0.38.4",
+    "rollup": "^4.60.4",
     "typescript": "^5.8.0"
   }
 }

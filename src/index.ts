@@ -1,10 +1,39 @@
-import * as core from '@actions/core'
-import * as exec from '@actions/exec'
-import * as dependencies from './dependencies'
+import pkg from "../package.json" with { type: "json" };
+import * as core from '@actions/core';
+import * as exec from '@actions/exec';
+
+interface SubmoduleDependency {
+  depUser : string,
+  depRepo : string,
+  depPR : string,
+};
+
+function get_submodule_dependencies(text : string) : SubmoduleDependency[] {
+  const submodule_dependency_pattern
+    = /(requires|depends on) \[{0,1}(?<urlPrefix>https:\/\/github\.com\/){0,1}(?<depUser>[a-zA-Z0-9_-]+)\/(?<depRepo>[a-zA-Z0-9_-]+)(?:#|\/pull\/)(?<depPR>[0-9]+)\]{0,1}/ig;
+
+  var results : SubmoduleDependency[] = [];
+
+  // By using the global flag (g), we can search repeatedly by running `exec`
+  // multiple times
+  var match = submodule_dependency_pattern.exec(text);
+
+  if (match != null && match.groups != undefined) {
+    results.push({
+      depUser: match.groups["depUser"],
+      depRepo: match.groups["depRepo"],
+      depPR: match.groups["depPR"],
+    });
+
+    match = submodule_dependency_pattern.exec(text);
+  }
+
+  return results;
+}
 
 async function run(): Promise<void> {
   try {
-  	const { context } = await import("@actions/github");
+    const { context } = await import("@actions/github");
     if (context.eventName != "pull_request" && context.eventName != "pull_request_target") {
       core.info("Not a pull request, ignoring.");
       return;
@@ -14,7 +43,7 @@ async function run(): Promise<void> {
 
     const prBody: string = context.payload.pull_request?.body ?? "";
 
-    const deps = dependencies.get_submodule_dependencies(prBody);
+    const deps = get_submodule_dependencies(prBody);
 
     if (deps.length > 0) {
       for (var dep of deps) {
@@ -45,6 +74,8 @@ async function run(): Promise<void> {
       map = JSON.parse(mapJson);
     }
     for (var dep of deps) {
+      core.info(`map: ${map}`);
+      core.info(`map.depRepo: ${map[dep.depRepo]}`);
       const path = map[dep.depRepo] ?? dep.depRepo;
       const git_options = { cwd: `./${path}` };
 
@@ -56,10 +87,16 @@ async function run(): Promise<void> {
         core.info(`Updated submodule ${dep.depRepo} to ${dep.depUser}/${dep.depRepo}#${dep.depPR}`);
     }
 
-    core.endGroup()
+    core.endGroup();
   } catch (error) {
-    core.setFailed((error as Error).message)
+    core.setFailed((error instanceof Error)
+      ? error as Error
+      : `Unknown error ${typeof(error)}: {error}`);
   }
 }
 
 run()
+
+export default {
+  external: Object.keys(pkg.dependencies)
+};
